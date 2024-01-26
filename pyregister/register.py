@@ -4,36 +4,66 @@ import pandas as pd
 import tabula
 import csv
 from time import sleep
+import os
+
+# Limpa o terminal
+def clear_screen():
+    if os.name == "nt":
+        os.system("cls")
+    else:
+        os.system("clear")
+
+# Captura as coordenadas desejadas
+class UserInteraction:
+    def aler_user(self, message):
+        print(message)
+
+    def get_coordinates(self):
+        self.aler_user("Você tem 3 segundos pra marcar o ponto desejado...")
+        sleep(3)
+
+        x, y = pyautogui.position()
+        self.aler_user(f"Cordernadas {x}, {y} registradas.")
+        clear_screen()
+        return x, y
+
 
 class Registrar:
     def __init__(self, data_file, margin, wait_time, max_iterations=None):
         self.data_file = data_file
-        self.output_file = "output.csv"
-        self.data_frame = pd.DataFrame()
         self.margin = margin
         self.wait_time = wait_time
-        self.mouse_speed = 0.5
         self.max_iterations = max_iterations
+        self.mouse_speed = 0.5
         pyautogui.FAILSAFE = True
 
-         # Constantes x, y
+        # Cria o arquivo de entrada e saída
+        self.data_frame = pd.DataFrame()
+        self.output_file = "output.csv"
+
+
+        # DADOS ESPECÍFICOS DESSE FLUXO!!!
         self.DADOS_FISCAIS = [706, 307]
         self.SAVE_POSITION = [562, 209]
-        self.VALUES = [
-            {"axis": [483, 308], "info": "Unnamed: 0"},  # NAME_POSITION
-            {"axis": [449, 509], "info": "VALOR"},      # PRICE_POSITION
-            {"axis": [587, 508], "info": self.margin},   # MARGIN_POSITION
-            {"axis": [806, 296], "info": "500"},         # CSN_POSITION
-            {"axis": [813, 342], "info": "0,19"},        # ICMS_POSITION
-            {"axis": [816, 388], "info": "Unnamed: 1"},  # NCM_POSITION
-        ]
+        NAMES = ["Unnamed: 0", "VALOR", self.margin, "500", "0,19", "Unnamed: 1"]
+        self.user_interaction = UserInteraction()
+
+
+        # Estrutura que guarda os valores
+        self.VALUES = []
+
+        # Armazena as informações na estrutura ser usada no cadastro
+        for name in NAMES:
+            coordinates = self.user_interaction.get_coordinates()
+            self.VALUES.append( {"axis": coordinates, "info": name})
+
 
     def register_product(self, product):
         print(f'''
-    ---------------------------------
-            {product}
-    ---------------------------------
-    ''')
+            ---------------------------------
+                    {product}
+            ---------------------------------
+            ''')
         
         for value in self.VALUES:
             sleep(self.wait_time)
