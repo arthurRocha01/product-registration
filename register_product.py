@@ -15,7 +15,10 @@ def main():
 
     margin = sys.argv[2]
     wait_time = float(sys.argv[3])
-    max_iterations = int(sys.argv[4]) if len(sys.argv) > 3 else None
+    max_iterations = None
+    
+    if len(sys.argv) == 5:
+        max_iterations = int(sys.argv[4])
 
     product_registrar = pyregister.Registrar(full_path, margin, wait_time, max_iterations)
     product_registrar.run()

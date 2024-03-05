@@ -1,10 +1,10 @@
 # Importações
-import pyautogui
-import pandas as pd
-import tabula
+import os
 import csv
 from time import sleep
-import os
+
+import pyautogui
+
 
 # Limpa o terminal
 def clear_screen():
@@ -13,128 +13,109 @@ def clear_screen():
     else:
         os.system("clear")
 
-# Captura as coordenadas desejadas
+
+# Captura as coordenadas do campo desejado
 class UserInteraction:
     def aler_user(self, message):
         print(message)
 
-    def get_coordinates(self):
+    def get_coordinates(self, name):
         self.aler_user("Você tem 3 segundos pra marcar o ponto desejado...")
         sleep(3)
 
         x, y = pyautogui.position()
-        self.aler_user(f"Cordernadas {x}, {y} registradas.")
-        clear_screen()
+        self.aler_user(f"{name}: Cordernadas {x}, {y} registradas.")
         return x, y
 
 
 class Registrar:
-    def __init__(self, data_file, margin, wait_time, max_iterations=None):
-        self.data_file = data_file
+    def __init__(self, input_file, margin, wait_time, max_iterations=None):
+        self.input_file = input_file
         self.margin = margin
         self.wait_time = wait_time
         self.max_iterations = max_iterations
+
+        # Segurança contra falhas (delay de resposta)
         self.mouse_speed = 0.5
         pyautogui.FAILSAFE = True
 
-        # Cria o arquivo de entrada e saída
-        self.data_frame = pd.DataFrame()
-        self.output_file = "output.csv"
-
-
         # DADOS ESPECÍFICOS DESSE FLUXO!!!
         self.DADOS_FISCAIS = [706, 307]
-        self.SAVE_POSITION = [562, 209]
-        NAMES = ["Unnamed: 0", "VALOR", self.margin, "500", "0,19", "Unnamed: 1"]
+        self.SAVE = [562, 209]
+        COLUMNS = ["nome", "valor", "margin", "cst", "taxa", "ncm"]
         self.user_interaction = UserInteraction()
 
 
-        # Estrutura que guarda os valores
-        self.VALUES = []
+        # Estrutura dos valores
+        self.FIELDS = []
 
-        # Armazena as informações na estrutura ser usada no cadastro
-        for name in NAMES:
-            coordinates = self.user_interaction.get_coordinates()
-            self.VALUES.append( {"axis": coordinates, "info": name})
+        # Armazena as coordenadas do field e valores do produto na estrutura
+        for col in COLUMNS:
+            coordinates = self.user_interaction.get_coordinates(col)
+            self.FIELDS.append({ "axis": coordinates, "info": col })
 
 
     def register_product(self, product):
         print(f'''
-            ---------------------------------
+            -------------------------------------------------
                     {product}
-            ---------------------------------
+            -------------------------------------------------
             ''')
         
-        for value in self.VALUES:
+        for field in self.FIELDS:
+            # Move o mouse para os campos escolhidos
+            x = field["axis"][0]
+            y = field["axis"][1]
             sleep(self.wait_time)
-            pyautogui.moveTo(value["axis"][0], value["axis"][1], duration=self.mouse_speed)
+            pyautogui.moveTo(x, y, duration=self.mouse_speed)
             sleep(self.wait_time)
 
+            # Double click
             print("click 2x")
             for i in range(0, 2):
                 pyautogui.click()
             sleep(self.wait_time)
 
-            if value["info"] in product:
-                pyautogui.write(product[value["info"]])
-                print(product[value["info"]])
+            # Escreve o self.margin
+            if field["info"] == "margin":
+                pyautogui.write(self.margin)
+                print(f"maigin: {self.margin}")
                 continue
 
-            pyautogui.write(value["info"])
-            print(value["info"])
+            # Escreve os valores
+            key = field["info"]
+            pyautogui.write(product[key].replace('.', ','))
+            print(f"{ field['info'] }: { product[field['info']] }")
 
             sleep(self.wait_time)
-            pyautogui.moveTo(*self.SAVE_POSITION, duration=self.mouse_speed)
+            pyautogui.moveTo(*self.SAVE, duration=self.mouse_speed)
             # print("save")
 
         print("----------------------------")
 
     def run(self):
-        # Lê pdf
-        print("Lendo arquivo...")
-        try:
-            pdf = tabula.read_pdf(self.data_file, pages="all", multiple_tables=True)
-        except Exception as error:
-            print(
-            f"Ocorreu um erro durante a leitura do PDF {self.data_file}: {error}"
-        )
-
-        # Trata o data frame
-        for table in pdf:
-            if "CÓDIGO DO" in table:
-                self.data_frame = pd.concat([self.data_frame, table], ignore_index=True)
-
-        self.data_frame = self.data_frame[self.data_frame["VALOR"] != "UNITÁRIO"]
-        self.data_frame = self.data_frame.astype(object)
-
-        # Salva o csv
-        print("Salvando arquivo...")
-        try:
-            self.data_frame.to_csv(self.output_file, index=False)
-        except Exception as error:
-            print(f"Ocorreu um erro ao salvar o DataFrame em {self.data_file}: {error}")
-
-        # -----------------------> RPA <---------------------
-            
         # Lê csv
         print("Abrindo arquivo...")
         try:
-            with open(self.output_file, "r", encoding="utf-8") as file:
+            with open(self.input_file, "r", encoding="utf-8") as file:
                 products = list(csv.DictReader(file))
         except Exception as error:
-             print(f"Ocorreu um erro ao abrir o arquivo CSV {self.data_file} para leitura: {error}")
+             print(f"Ocorreu um erro ao abrir o arquivo CSV {self.input_file} para leitura: {error}")
 
         # Alerta 
-        pyautogui.alert("ATENÇÃO!!: Não use mouse e tecla, pode atralhar o funcionamento.\nO RPA vai ser executado.")
+        pyautogui.alert("ATENÇÃO!!: Não use mouse e tecla, pode atrapalhar o funcionamento.\nO RPA vai ser executado.")
 
         # Prepara o ambiente
-        pyautogui.moveTo(*self.SAVE_POSITION, duration=self.mouse_speed)
+        pyautogui.moveTo(*self.SAVE, duration=self.mouse_speed)
         pyautogui.click()
         sleep(self.wait_time)
+
         pyautogui.moveTo(*self.DADOS_FISCAIS, duration=self.mouse_speed)
         pyautogui.click()
         sleep(self.wait_time)
 
+
+        # Cadastra cada produto
         count_iteration = 0
         for product in products:
             self.register_product(product)
